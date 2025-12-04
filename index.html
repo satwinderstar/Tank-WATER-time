@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mobile Water Tank Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            color: white;
+        }
+
+        .tank-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 320px;
+            margin: 10px;
+        }
+
+        .tank-cover {
+            width: 280px;
+            height: 40px;
+            background: linear-gradient(135deg, #f0f0f0, #e0e0e0);
+            border: 3px solid #333;
+            border-radius: 20px 20px 12px 12px;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        .tank-handle {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 20px;
+            border: 3px solid #333;
+            border-bottom: none;
+            border-radius: 15px 15px 0 0;
+            background: transparent;
+        }
+
+        .water-tank {
+            width: 300px;
+            height: 400px;
+            position: relative;
+            border: 4px solid #333;
+            border-radius: 0 0 25px 25px;
+            background: linear-gradient(135deg, #2c2c54, #40407a);
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+            margin-top: -3px;
+        }
+
+        .tank-line {
+            position: absolute;
+            width: 100%;
+            height: 3px;
+            background-color: #555;
+            left: 0;
+            opacity: 0.7;
+        }
+
+        .line-1 { top: 66px; }
+        .line-2 { top: 132px; }
+        .line-3 { top: 198px; }
+        .line-4 { top: 264px; }
+        .line-5 { top: 330px; }
+
+        .water {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: var(--water-level, 0%);
+            background: var(--water-color);
+            transition: all 2s cubic-bezier(0.4, 0.0, 0.2, 1);
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
+            border-top: 2px solid rgba(255,255,255,0.4);
+        }
+
+        .water-surface {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 10px;
+            background: var(--surface-color);
+            animation: waterSurface 3s linear infinite;
+            opacity: 0.9;
+        }
+
+        @keyframes waterSurface {
+            0% { transform: translateX(-8px) scaleY(1); }
+            50% { transform: translateX(0px) scaleY(1.2); }
+            100% { transform: translateX(8px) scaleY(1); }
+        }
+
+        .water-droplet {
+            position: absolute;
+            width: 14px;
+            height: 18px;
+            background: var(--droplet-color, #1e90ff);
+            border-radius: 0 50% 50% 50%;
+            transform: rotate(-45deg);
+            animation: dropletFloat 5s ease-in-out infinite;
+            transition: background 1.5s ease;
+        }
+
+        @keyframes dropletFloat {
+            0%, 100% { transform: rotate(-45deg) translateY(0px); opacity: 0.7; }
+            50% { transform: rotate(-45deg) translateY(-5px); opacity: 1; }
+        }
+
+        .droplet-1 { top: 25px; left: 50px; animation-delay: 0s; }
+        .droplet-2 { top: 35px; left: 120px; animation-delay: 1.2s; }
+        .droplet-3 { top: 20px; left: 180px; animation-delay: 2.4s; }
+        .droplet-4 { top: 40px; left: 230px; animation-delay: 0.6s; }
+        .droplet-5 { top: 30px; left: 80px; animation-delay: 1.8s; }
+        .droplet-6 { top: 25px; left: 150px; animation-delay: 3s; }
+
+        .internal-percentage {
+            position: absolute;
+            top: 12%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 42px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 3px 3px 10px rgba(0,0,0,0.9);
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border-radius: 15px;
+            border: 2px solid rgba(255,255,255,0.7);
+            backdrop-filter: blur(8px);
+            transition: all 1.5s ease;
+            z-index: 110;
+            min-width: 100px;
+            text-align: center;
+        }
+
+        /* ✅ NEW: Time display BELOW percentage */
+        .update-time-below {
+            position: absolute;
+            top: 24%; /* Just below percentage */
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.92);
+            background: rgba(0, 0, 0, 0.5);
+            padding: 6px 16px;
+            border-radius: 10px;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 0.8px;
+            z-index: 105;
+            min-width: 180px;
+        }
+
+        .tank-label {
+            margin-top: 25px;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 6px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        .bubbles {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .bubble {
+            position: absolute;
+            background: var(--bubble-color, rgba(255,255,255,0.6));
+            border-radius: 50%;
+            animation: bubbleRise 8s linear infinite;
+            transition: background 1.5s ease;
+        }
+
+        @keyframes bubbleRise {
+            0% { bottom: 0; opacity: 0; transform: translateX(0); }
+            15% { opacity: 0.8; }
+            85% { opacity: 0.8; }
+            100% { bottom: 380px; opacity: 0; transform: translateX(15px); }
+        }
+
+        .bubble-1 { left: 60px; width: 10px; height: 10px; animation-delay: 0s; }
+        .bubble-2 { left: 150px; width: 8px; height: 8px; animation-delay: 2s; }
+        .bubble-3 { left: 220px; width: 12px; height: 12px; animation-delay: 4s; }
+        .bubble-4 { left: 100px; width: 9px; height: 9px; animation-delay: 1s; }
+        .bubble-5 { left: 190px; width: 11px; height: 11px; animation-delay: 3s; }
+
+        .status-indicator {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.8);
+            color: #00ff00;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            font-weight: bold;
+            transition: all 0.5s ease;
+            border: 1px solid rgba(0,255,0,0.3);
+            z-index: 200;
+        }
+
+        @media (max-width: 400px) {
+            .tank-container { max-width: 280px; }
+            .tank-cover { width: 250px; height: 35px; }
+            .water-tank { width: 270px; height: 360px; }
+            .internal-percentage { font-size: 36px; padding: 8px 16px; }
+            .update-time-below { font-size: 14px; top: 25%; }
+            .tank-label { font-size: 20px; margin-top: 20px; }
+        }
+
+        @media (max-width: 360px) {
+            .tank-container { max-width: 260px; }
+            .tank-cover { width: 230px; }
+            .water-tank { width: 250px; height: 340px; }
+            .internal-percentage { font-size: 32px; }
+            .update-time-below { font-size: 13px; top: 26%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="tank-container">
+        <div class="status-indicator" id="statusIndicator">AUTO-REFRESH</div>
+        <div class="tank-cover">
+            <div class="tank-handle"></div>
+        </div>
+        <div class="water-tank">
+            <div class="tank-line line-1"></div>
+            <div class="tank-line line-2"></div>
+            <div class="tank-line line-3"></div>
+            <div class="tank-line line-4"></div>
+            <div class="tank-line line-5"></div>
+            
+            <!-- Percentage -->
+            <div class="internal-percentage" id="internalPercentage">0%</div>
+            <!-- ✅ Time BELOW percentage -->
+            <div class="update-time-below" id="updateTimeBelow">--:--:-- • -- sec ago</div>
+            
+            <!-- Water with bubbles -->
+            <div class="water" id="waterFill">
+                <div class="water-surface"></div>
+                <div class="bubbles">
+                    <div class="bubble bubble-1"></div>
+                    <div class="bubble bubble-2"></div>
+                    <div class="bubble bubble-3"></div>
+                    <div class="bubble bubble-4"></div>
+                    <div class="bubble bubble-5"></div>
+                </div>
+            </div>
+            
+            <!-- Droplets -->
+            <div class="water-droplet droplet-1"></div>
+            <div class="water-droplet droplet-2"></div>
+            <div class="water-droplet droplet-3"></div>
+            <div class="water-droplet droplet-4"></div>
+            <div class="water-droplet droplet-5"></div>
+            <div class="water-droplet droplet-6"></div>
+        </div>
+        <div class="tank-label">SMART WATER TANK</div>
+    </div>
+
+    <script>
+        // === CONFIGURATION ===
+        const currentChannelId = '2949851';
+        const readApiKey = ''; // optional for public channels
+
+        // === TIME HELPERS ===
+        function formatTime(date) {
+            return date.toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        }
+
+        function timeAgo(created_at_str) {
+            const now = new Date();
+            const then = new Date(created_at_str);
+            const diffSec = Math.floor((now - then) / 1000);
+            if (diffSec < 0) return "future";
+            if (diffSec === 0) return "just now";
+            if (diffSec < 60) return `${diffSec} sec ago`;
+            const mins = Math.floor(diffSec / 60);
+            const secs = diffSec % 60;
+            return `${mins} min ${secs} sec ago`;
+        }
+
+        // === WATER COLOR LOGIC ===
+        function getMobileWaterColor(level) {
+            let waterColor, surfaceColor, dropletColor, bubbleColor;
+            if (level >= 90) {
+                waterColor = 'linear-gradient(180deg, #00ffff 0%, #00ccff 25%, #0099ff 50%, #0066ff 75%, #003399 100%)';
+                surfaceColor = 'linear-gradient(90deg, #66ffff, #33ccff, #66ffff)';
+                dropletColor = '#00ddff';
+                bubbleColor = 'rgba(0, 221, 255, 0.9)';
+            } else if (level >= 80) {
+                waterColor = 'linear-gradient(180deg, #0099ff 0%, #0080ee 25%, #0066dd 50%, #004cbb 75%, #003399 100%)';
+                surfaceColor = 'linear-gradient(90deg, #4da6ff, #3399ff, #4da6ff)';
+                dropletColor = '#0099ff';
+                bubbleColor = 'rgba(0, 153, 255, 0.8)';
+            } else if (level >= 70) {
+                waterColor = 'linear-gradient(180deg, #1e90ff 0%, #0080ff 25%, #0070e0 50%, #0060cc 75%, #004499 100%)';
+                surfaceColor = 'linear-gradient(90deg, #66b3ff, #4da6ff, #66b3ff)';
+                dropletColor = '#1e90ff';
+                bubbleColor = 'rgba(30, 144, 255, 0.8)';
+            } else if (level >= 60) {
+                waterColor = 'linear-gradient(180deg, #4da6ff 0%, #3399ff 25%, #1a8cff 50%, #0066cc 75%, #004499 100%)';
+                surfaceColor = 'linear-gradient(90deg, #80c0ff, #66b3ff, #80c0ff)';
+                dropletColor = '#4da6ff';
+                bubbleColor = 'rgba(77, 166, 255, 0.8)';
+            } else if (level >= 50) {
+                waterColor = 'linear-gradient(180deg, #00cccc 0%, #0099aa 25%, #006688 50%, #004466 75%, #002244 100%)';
+                surfaceColor = 'linear-gradient(90deg, #66dddd, #44cccc, #66dddd)';
+                dropletColor = '#00aaaa';
+                bubbleColor = 'rgba(0, 170, 170, 0.8)';
+            } else if (level >= 40) {
+                waterColor = 'linear-gradient(180deg, #ffcc00 0%, #ffaa00 25%, #ff8800 50%, #ff6600 75%, #cc4400 100%)';
+                surfaceColor = 'linear-gradient(90deg, #ffdd66, #ffcc44, #ffdd66)';
+                dropletColor = '#ffbb00';
+                bubbleColor = 'rgba(255, 187, 0, 0.8)';
+            } else if (level >= 30) {
+                waterColor = 'linear-gradient(180deg, #ff8800 0%, #ff6600 25%, #ff4400 50%, #ee2200 75%, #cc1100 100%)';
+                surfaceColor = 'linear-gradient(90deg, #ffbb66, #ffaa44, #ffbb66)';
+                dropletColor = '#ff7700';
+                bubbleColor = 'rgba(255, 119, 0, 0.8)';
+            } else if (level >= 20) {
+                waterColor = 'linear-gradient(180deg, #ff6600 0%, #ff4400 25%, #ff2200 50%, #dd0000 75%, #aa0000 100%)';
+                surfaceColor = 'linear-gradient(90deg, #ff9966, #ff7744, #ff9966)';
+                dropletColor = '#ff5500';
+                bubbleColor = 'rgba(255, 85, 0, 0.8)';
+            } else if (level >= 10) {
+                waterColor = 'linear-gradient(180deg, #ff4444 0%, #ff2222 25%, #ff0000 50%, #dd0000 75%, #bb0000 100%)';
+                surfaceColor = 'linear-gradient(90deg, #ff7777, #ff5555, #ff7777)';
+                dropletColor = '#ff3333';
+                bubbleColor = 'rgba(255, 51, 51, 0.8)';
+            } else {
+                waterColor = 'linear-gradient(180deg, #cc0000 0%, #aa0000 25%, #880000 50%, #660000 75%, #440000 100%)';
+                surfaceColor = 'linear-gradient(90deg, #ff4444, #cc2222, #ff4444)';
+                dropletColor = '#cc0000';
+                bubbleColor = 'rgba(204, 0, 0, 0.8)';
+            }
+            return { waterColor, surfaceColor, dropletColor, bubbleColor };
+        }
+
+        // === FETCH FROM THINGSPEAK ===
+        async function fetchThingSpeakData() {
+            try {
+                document.getElementById('statusIndicator').textContent = 'FETCHING...';
+                document.getElementById('statusIndicator').style.background = 'rgba(255,165,0,0.8)';
+
+                // ✅ CORRECTED URL (no extra space)
+                let apiUrl = `https://api.thingspeak.com/channels/${currentChannelId}/feeds/last.json`;
+                if (readApiKey) {
+                    apiUrl += `?api_key=${readApiKey}`;
+                }
+
+                const response = await fetch(apiUrl);
+                if (response.ok) {
+                    const data = await response.json();
+                    processThingSpeakData(data);
+                    document.getElementById('statusIndicator').textContent = 'ONLINE';
+                    document.getElementById('statusIndicator').style.background = 'rgba(0,128,0,0.8)';
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                console.error('ThingSpeak Error:', error);
+                document.getElementById('statusIndicator').textContent = 'DEMO';
+                document.getElementById('statusIndicator').style.background = 'rgba(128,0,128,0.8)';
+                generateDemoData();
+            }
+        }
+
+        // === PROCESS DATA ===
+        function processThingSpeakData(data) {
+            let waterLevel = 0;
+            let timestamp = new Date();
+
+            if (data.field1 !== null && data.field1 !== undefined) {
+                const field1EmptyPercent = parseFloat(data.field1);
+                waterLevel = Math.max(0, Math.min(100, 100 - field1EmptyPercent));
+                if (data.created_at) {
+                    timestamp = new Date(data.created_at);
+                }
+            }
+
+            updateMobileTankDisplay(waterLevel, timestamp);
+        }
+
+        // === DEMO DATA ===
+        function generateDemoData() {
+            const demoEmptyPercent = Math.random() * 85;
+            const mockData = {
+                field1: demoEmptyPercent,
+                created_at: new Date().toISOString()
+            };
+            processThingSpeakData(mockData);
+        }
+
+        // === UPDATE UI ===
+        function updateMobileTankDisplay(waterLevel, timestamp) {
+            const waterElement = document.getElementById('waterFill');
+            const percElement = document.getElementById('internalPercentage');
+            const timeBelowElement = document.getElementById('updateTimeBelow');
+
+            const colors = getMobileWaterColor(waterLevel);
+            waterElement.style.setProperty('--water-level', waterLevel + '%');
+            waterElement.style.setProperty('--water-color', colors.waterColor);
+            waterElement.style.setProperty('--surface-color', colors.surfaceColor);
+
+            percElement.textContent = waterLevel.toFixed(1) + '%';
+            timeBelowElement.textContent = `${formatTime(timestamp)} • ${timeAgo(timestamp)}`;
+
+            // Update droplets & bubbles
+            document.querySelectorAll('.water-droplet').forEach(d => d.style.setProperty('--droplet-color', colors.dropletColor));
+            document.querySelectorAll('.bubble').forEach(b => b.style.setProperty('--bubble-color', colors.bubbleColor));
+
+            // Style % box
+            if (waterLevel > 80) {
+                percElement.style.color = '#ffffff';
+                percElement.style.borderColor = '#00ffff';
+                percElement.style.background = 'rgba(0, 255, 255, 0.4)';
+                percElement.style.boxShadow = '0 0 25px rgba(0, 255, 255, 0.8)';
+            } else if (waterLevel > 60) {
+                percElement.style.color = '#ffffff';
+                percElement.style.borderColor = '#0099ff';
+                percElement.style.background = 'rgba(0, 153, 255, 0.4)';
+                percElement.style.boxShadow = '0 0 25px rgba(0, 153, 255, 0.7)';
+            } else if (waterLevel > 40) {
+                percElement.style.color = '#ffffff';
+                percElement.style.borderColor = '#ffaa00';
+                percElement.style.background = 'rgba(255, 170, 0, 0.4)';
+                percElement.style.boxShadow = '0 0 25px rgba(255, 170, 0, 0.7)';
+            } else if (waterLevel > 20) {
+                percElement.style.color = '#ffffff';
+                percElement.style.borderColor = '#ff6600';
+                percElement.style.background = 'rgba(255, 102, 0, 0.4)';
+                percElement.style.boxShadow = '0 0 25px rgba(255, 102, 0, 0.8)';
+            } else {
+                percElement.style.color = '#ffffff';
+                percElement.style.borderColor = '#ff0000';
+                percElement.style.background = 'rgba(255, 0, 0, 0.4)';
+                percElement.style.boxShadow = '0 0 25px rgba(255, 0, 0, 0.9)';
+            }
+        }
+
+        // === START ===
+        function initializeSystem() {
+            updateMobileTankDisplay(50, new Date());
+            setInterval(fetchThingSpeakData, 15000);
+            generateDemoData();
+            setTimeout(fetchThingSpeakData, 1500);
+        }
+
+        initializeSystem();
+    </script>
+</body>
+</html>
