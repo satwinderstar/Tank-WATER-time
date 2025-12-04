@@ -135,13 +135,12 @@
         .droplet-5 { top: 30px; left: 80px; animation-delay: 1.8s; }
         .droplet-6 { top: 25px; left: 150px; animation-delay: 3s; }
 
-        /* Percentage - centered */
         .internal-percentage {
             position: absolute;
             top: 12%;
             left: 50%;
             transform: translateX(-50%);
-            font-size: 52px;
+            font-size: 42px;
             font-weight: bold;
             color: white;
             text-shadow: 2px 2px 8px rgba(0,0,0,0.9);
@@ -155,20 +154,19 @@
             text-align: center;
         }
 
-        /* ✅ TIME BOX: CENTERED, BELOW PERCENTAGE */
         .live-clock {
             position: absolute;
-            top: 38%;
+            top: 28%;
             left: 50%;
             transform: translateX(-50%);
-            font-size: 16px;
+            font-size: 15px;
             color: rgba(255, 255, 255, 0.95);
             background: rgba(0, 0, 0, 0.5);
-            padding: 7px 16px;
+            padding: 7px 14px;
             border-radius: 10px;
             text-align: center;
             font-family: 'Courier New', monospace;
-            letter-spacing: 1px;
+            letter-spacing: 0.8px;
             z-index: 105;
             min-width: 180px;
             white-space: nowrap;
@@ -228,7 +226,7 @@
             .tank-cover { width: 250px; height: 35px; }
             .water-tank { width: 270px; height: 360px; }
             .internal-percentage { font-size: 36px; top: 13%; }
-            .live-clock { font-size: 15px; top: 29%; }
+            .live-clock { font-size: 14px; top: 29%; }
             .tank-label { font-size: 20px; margin-top: 20px; }
         }
 
@@ -237,7 +235,7 @@
             .tank-cover { width: 230px; }
             .water-tank { width: 250px; height: 340px; }
             .internal-percentage { font-size: 32px; top: 14%; }
-            .live-clock { font-size: 14px; top: 30%; }
+            .live-clock { font-size: 13px; top: 30%; }
         }
     </style>
 </head>
@@ -254,12 +252,9 @@
             <div class="tank-line line-4"></div>
             <div class="tank-line line-5"></div>
             
-            <!-- Percentage -->
             <div class="internal-percentage" id="internalPercentage">0%</div>
-            <!-- ✅ LIVE CLOCK - CENTERED -->
-            <div class="live-clock" id="liveClock">--:--:--</div>
+            <div class="live-clock" id="liveClock">--:--:-- --</div>
             
-            <!-- Water -->
             <div class="water" id="waterFill">
                 <div class="water-surface"></div>
                 <div class="bubbles">
@@ -271,7 +266,6 @@
                 </div>
             </div>
             
-            <!-- Droplets -->
             <div class="water-droplet droplet-1"></div>
             <div class="water-droplet droplet-2"></div>
             <div class="water-droplet droplet-3"></div>
@@ -286,8 +280,40 @@
         // === CONFIG ===
         const CHANNEL_ID = '2949851';
         const READ_API_KEY = '';
+        let lastLevel = null; // to detect change
 
-        // === Color mapping by level range ===
+        // === AM/PM Time Formatter ===
+        function formatAMPM(date) {
+            return date.toLocaleTimeString([], {
+                hour12: true,
+                hour: "numeric",
+                minute: "2-digit",
+                second: "2-digit"
+            });
+        }
+
+        // === "X hours Y min Z sec ago" ===
+        function timeAgo(created_at_str) {
+            const now = new Date();
+            const then = new Date(created_at_str);
+            const diffSec = Math.floor((now - then) / 1000);
+            if (diffSec < 0) return "future";
+            if (diffSec === 0) return "just now";
+
+            const hours = Math.floor(diffSec / 3600);
+            const mins = Math.floor((diffSec % 3600) / 60);
+            const secs = diffSec % 60;
+
+            if (hours > 0) {
+                return `${hours} hr ${mins} min ${secs} sec ago`;
+            } else if (mins > 0) {
+                return `${mins} min ${secs} sec ago`;
+            } else {
+                return `${secs} sec ago`;
+            }
+        }
+
+        // === Color Scheme ===
         function getColorScheme(level) {
             if (level >= 90) return { w: '#00ffff', s: '#66ffff', d: '#00ddff', b: 'rgba(0,221,255,0.9)' };
             if (level >= 80) return { w: '#0099ff', s: '#4da6ff', d: '#0099ff', b: 'rgba(0,153,255,0.8)' };
@@ -302,9 +328,10 @@
         }
 
         // === Update UI ===
-        function updateDisplay(level) {
+        function updateDisplay(level, timestamp, isReal) {
             const waterEl = document.getElementById('waterFill');
             const percEl = document.getElementById('internalPercentage');
+            const clockEl = document.getElementById('liveClock');
 
             const c = getColorScheme(level);
             waterEl.style.setProperty('--water-level', level + '%');
@@ -315,19 +342,20 @@
             document.querySelectorAll('.bubble').forEach(b => b.style.setProperty('--bubble-color', c.b));
 
             percEl.textContent = level.toFixed(1) + '%';
-
-            // Style percentage border
             percEl.style.borderColor = c.d;
             percEl.style.boxShadow = `0 0 20px ${c.d}80`;
+
+            // Update live clock with AM/PM + ago text
+            if (timestamp) {
+                const timeStr = formatAMPM(timestamp);
+                const agoStr = timeAgo(timestamp);
+                clockEl.textContent = `${timeStr} • ${agoStr}`;
+            }
         }
 
-        // === Fetch from ThingSpeak ===
+        // === Fetch Real Data ===
         async function fetchRealData() {
             try {
-                const statusEl = document.getElementById('statusIndicator');
-                statusEl.textContent = 'FETCHING';
-                statusEl.style.color = '#ffa500';
-
                 const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json${READ_API_KEY ? `?api_key=${READ_API_KEY}` : ''}`;
                 const res = await fetch(url);
                 if (!res.ok) throw new Error('API error');
@@ -337,52 +365,50 @@
 
                 const emptyPerc = parseFloat(data.field1);
                 const level = Math.max(0, Math.min(100, 100 - emptyPerc));
+                const timestamp = new Date(data.created_at);
 
-                updateDisplay(level);
+                // Only show ONLINE if level actually changed
+                if (lastLevel === null || Math.abs(level - lastLevel) > 0.1) {
+                    document.getElementById('statusIndicator').textContent = 'ONLINE';
+                    document.getElementById('statusIndicator').style.color = '#50ff50';
+                    lastLevel = level;
+                }
 
-                statusEl.textContent = 'ONLINE';
-                statusEl.style.color = '#50ff50';
+                updateDisplay(level, timestamp, true);
 
             } catch (err) {
-                console.warn('Real data failed, using fallback:', err);
-                // Keep last known level or demo
-                useDemoFallback();
+                console.warn('Fetch failed:', err);
+                document.getElementById('statusIndicator').textContent = 'DEMO';
+                document.getElementById('statusIndicator').style.color = '#ff55ff';
+                // Keep showing last known or demo
+                const fallbackLevel = lastLevel !== null ? lastLevel : 50;
+                updateDisplay(fallbackLevel, new Date(), false);
             }
         }
 
-        function useDemoFallback() {
-            const statusEl = document.getElementById('statusIndicator');
-            statusEl.textContent = 'DEMO';
-            statusEl.style.color = '#ff55ff';
-            // Keep existing level or set random
-            const currentPerc = parseFloat(document.getElementById('internalPercentage').textContent) || 50;
-            const newLevel = Math.max(10, currentPerc - (Math.random() * 2)); // slowly decrease
-            updateDisplay(newLevel);
-        }
-
-        // === REAL-TIME CLOCK (Live seconds) ===
+        // === Live Clock (AM/PM, updates every second) ===
         function startLiveClock() {
             const clockEl = document.getElementById('liveClock');
-            function updateClock() {
+            function update() {
                 const now = new Date();
-                const timeStr = now.toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
-                clockEl.textContent = timeStr;
+                const timeStr = formatAMPM(now);
+                // Keep "ago" part only from real data — demo shows just time
+                if (lastLevel === null) {
+                    clockEl.textContent = timeStr;
+                }
             }
-            updateClock(); // immediate
-            setInterval(updateClock, 1000); // every second
+            update();
+            setInterval(update, 1000);
         }
 
         // === INIT ===
         function init() {
-            // Start with demo level
-            updateDisplay(65);
+            // Start with demo
+            updateDisplay(55, new Date(), false);
             document.getElementById('statusIndicator').textContent = 'DEMO';
             document.getElementById('statusIndicator').style.color = '#ff55ff';
-
-            // Start live clock
             startLiveClock();
 
-            // Fetch real data
             setTimeout(fetchRealData, 1000);
             setInterval(fetchRealData, 15000);
         }
